@@ -5,9 +5,12 @@ This repo contains my attempts to reproduce and document issues and behavior enc
 - [dagger-repro](#dagger-repro)
   - [Weird Cache Invalidation Behavior](#weird-cache-invalidation-behavior)
     - [Background](#background)
+      - [Version Management](#version-management)
+      - [Makefile](#makefile)
+      - [Timestamps](#timestamps)
     - [Observed behavior](#observed-behavior)
     - [Investigation](#investigation)
-    - [Behavior Explained](#behavior-explained)
+      - [Behavior Explained](#behavior-explained)
     - [Next Steps](#next-steps)
 
 ## Weird Cache Invalidation Behavior
@@ -15,6 +18,8 @@ This repo contains my attempts to reproduce and document issues and behavior enc
 ### Background
 
 On Monday 14 October 2024 I attempted to upgrade an application `go` module and the corresponding `dagger` module from `go1.23.1` to `go1.23.2`.
+
+#### Version Management
 
 The [`.dagger`](.dagger/main.go) module is structured such that all dependency/toolchain versions can be maintained from a single place in code; specifically the root `dagger` module constructor like:
 
@@ -45,6 +50,8 @@ func New(
 }
 ```
 
+#### Makefile
+
 For the sake of user experience, a [`Makefile`](Makefile) is used to encapsulate common arguments, notably arguments that a required to be explicit, like host system files or directories outside of the `dagger` context. Like so:
 
 ```makefile
@@ -52,6 +59,8 @@ For the sake of user experience, a [`Makefile`](Makefile) is used to encapsulate
 build: 
     @dagger call --ssh-dir ~/.ssh build binaries 
 ```
+
+#### Timestamps
 
 Lastly, because `git` behavior is such that the local filesystem timestamps do not match `commit` timestamps, a tool is used prior to `dagger` execution that ensures the local filesystem timestamps match the `commit` timestamps. Why? Initially this was implemented for the application so that `go test` caches aren't unnecessarily busted when *only* local filesystem timestamps changed. In a big project, this saves developers a significant amount of time when running unit tests. When `dagger` was implemented, it was decided that the same timestamp pattern can help avoid unnecessarily busting `dagger` caches of file/directory input arguments, like source dir.
 
@@ -70,7 +79,7 @@ On Friday 18 October 2024, I reached out to Marco at `dagger` with regards to th
 
 Starting with an empty repo, the `.dagger` module was constructed from scratch and original repo parity was added one piece at a time. Unable to reproduce the issue, I decided to go beyond `.dagger` parity and introduced the `Makefile` layer from the original repo; after adding `tools/git-mtimestamp`, I was finally able to reproduce the behavior!
 
-### Behavior Explained
+#### Behavior Explained
 
 As explained in the background section, we sync local file system timestamps with `git` timestamps prior to every `Makefile` target execution. The *intention* was to only modify the timestamps for files that were unchanged, because we *do* want to invalidate caches when we modify or add new files. The *reality* was that the tool modified timestamps for changed/new files and the resulting behavior was a `dagger` cache hit. In other words, to `dagger` nothing changed, despite having modified `.dagger/main.go`.
 
