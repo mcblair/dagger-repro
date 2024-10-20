@@ -1,0 +1,11 @@
+{
+  "name": "dagger-repro",
+  "sdk": "go",
+  "exclude": [
+    "**/*",
+    "!.dagger/**",
+    "!dagger.json"
+  ],
+  "source": ".dagger",
+  "engineVersion": "v0.13.1"
+}
